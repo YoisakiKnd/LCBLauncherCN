@@ -3,6 +3,7 @@
 import hashlib
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 import sys
@@ -26,7 +27,15 @@ run(tools / "zipalign", "-c", "-P", "16", "4", apk)
 print("APK ZIP alignment: 16 KiB check passed")
 badging = run(tools / "aapt2", "dump", "badging", apk)
 assert "package: name='io.github.lcblauncher'" in badging, "Unexpected application ID"
-assert "sdkVersion:'26'" in badging and "targetSdkVersion:'36'" in badging, "Unexpected SDK range"
+manifest = run(tools / "aapt2", "dump", "xmltree", apk, "--file", "AndroidManifest.xml")
+def sdk_value(attribute):
+    match = re.search(rf"android:{attribute}\([^)]*\)\s*=\s*\(type 0x10\)\s*0x([0-9a-fA-F]+)", manifest)
+    if not match:
+        raise AssertionError(f"Cannot read compiled manifest attribute: {attribute}")
+    return int(match.group(1), 16)
+minimum, target = sdk_value("minSdkVersion"), sdk_value("targetSdkVersion")
+print(f"Compiled manifest SDK range: min={minimum}, target={target}")
+assert (minimum, target) == (26, 36), "Unexpected SDK range"
 permissions = run(tools / "aapt2", "dump", "permissions", apk)
 for permission in ["INTERNET", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "MANAGE_EXTERNAL_STORAGE",
                    "QUERY_ALL_PACKAGES", "REQUEST_INSTALL_PACKAGES"]:
