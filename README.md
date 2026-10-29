@@ -40,7 +40,7 @@ Android Studio 可直接打开项目。在 `local.properties` 设置 `sdk.dir` �
 本机已安装的独立构建工具位于忽略的 `.tools/` 目录，可运行：
 
 ```bash
-bash scripts/dev.sh
+LCB_ALLOW_LOCAL_BUILD=1 bash scripts/dev.sh
 ```
 
 APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。测试交付文件另放在 `dist/`，不提交构建产物、SDK、缓存或签名私钥。

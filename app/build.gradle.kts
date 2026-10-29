@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -33,7 +35,7 @@ android {
             it.maxParallelForks = 1
             val testMetaspace = providers.gradleProperty("probeTestMetaspace").orElse("192m").get()
             it.jvmArgs("-XX:MaxMetaspaceSize=$testMetaspace", "-XX:ActiveProcessorCount=1")
-            it.timeout.set(java.time.Duration.ofMinutes(5))
+            it.timeout.set(Duration.ofMinutes(5))
             it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
             it.systemProperty("maven.repo.local", rootProject.file(".tools/robolectric-maven").absolutePath)
         }

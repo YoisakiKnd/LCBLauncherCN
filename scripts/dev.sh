@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${LCB_ALLOW_LOCAL_BUILD:-}" != "1" ]]; then
+    printf '%s\n' 'Local builds are disabled. Use GitHub Actions. On your own development computer, explicitly set LCB_ALLOW_LOCAL_BUILD=1.' >&2
+    exit 2
+fi
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
