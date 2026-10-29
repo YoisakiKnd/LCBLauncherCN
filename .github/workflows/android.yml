@@ -52,4 +52,30 @@ jobs:
         run: bash scripts/ci-build.sh
 
       - name: Verify APK signature, permissions and alignment
-        run: python3 scripts/verify-apk.py
+        shell: bash
+        run: python3 scripts/verify-apk.py | tee apk-verification.txt
+
+      - name: Package phone test files
+        run: python3 scripts/package-probe.py
+
+      - name: Upload APK and phone test instructions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: LCBLauncher-probe-apk
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: LCBLauncher-check-reports
+          path: |
+            core/build/reports/tests/
+            core/build/test-results/
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14

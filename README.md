@@ -8,7 +8,9 @@
 
 ## 云端构建
 
-进入 [GitHub Actions](https://github.com/YoisakiKnd/LCBLauncherCN/actions/workflows/android.yml) 查看 `Android APK` 工作流。推送到 `main`、提交 PR 或手动运行时，GitHub 托管 runner 会执行构建、Android 16 主机测试、静态检查，以及 APK 签名和对齐检查。当前配置仅验证构建，下载产物的上传步骤尚未启用。
+进入 [GitHub Actions](https://github.com/YoisakiKnd/LCBLauncherCN/actions/workflows/android.yml) 查看 `Android APK` 工作流。推送到 `main`、提交 PR 或手动运行时，GitHub 托管 runner 会执行构建、Android 16 主机测试、静态检查，以及 APK 签名和对齐检查。
+
+选择最近一次成功运行，在页面底部的 **Artifacts** 下载 **LCBLauncher-probe-apk**，解压后安装其中的 `LCBLauncher-0.1.0-probe-debug.apk`。同一产物包含测试步骤、SHA-256 校验、签名与对齐校验记录，以及自主编写的 ZIP 结构检查示例。示例不是游戏汉化包。单独的 `LCBLauncher-check-reports` 保存测试和 lint 报告；产物保留 14 天。下载 Actions 产物通常需要登录 GitHub。
 
 服务器不再用于编译。工作流设置了超时、并发去重和资源上限；`scripts/ci-build.sh` 拒绝在 GitHub Actions 之外运行。云端 `versionCode` 使用工作流运行编号。
 
@@ -46,6 +48,8 @@ LCB_ALLOW_LOCAL_BUILD=1 bash scripts/dev.sh
 APK 输出：`app/build/outputs/apk/debug/app-debug.apk`。测试交付文件另放在 `dist/`，不提交构建产物、SDK、缓存或签名私钥。
 
 本机调试签名保存在 `.tools/android-user-home/debug.keystore`。保留该文件，以便后续测试 APK 同签名覆盖升级。它不用于正式发布。
+
+Actions 当前使用云端临时调试签名，不上传本地私钥。不同运行的 APK 可能无法直接覆盖升级；固定分发签名尚未配置。真机测试请选择 `main` 分支的成功运行。本项目安装包与游戏原版独立。
 
 ## 真机测试
 
