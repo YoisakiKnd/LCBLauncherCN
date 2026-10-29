@@ -1,0 +1,15 @@
+{
+  "notice": "这是自主编写的结构检查示例，不是可用的游戏汉化包。",
+  "dataList": [
+    {
+      "id": "launcher_sample_001",
+      "name": "启程测试",
+      "desc": "检查 ZIP 导入、JSON 字段统计和缓存恢复。"
+    },
+    {
+      "id": "launcher_sample_002",
+      "teller": "启动器",
+      "content": "下一站，中文世界。<br>当前仅用于离线结构检查。"
+    }
+  ]
+}
