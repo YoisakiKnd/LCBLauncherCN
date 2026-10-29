@@ -2,7 +2,6 @@ package io.github.lcblauncher.data
 
 import android.content.Context
 import android.net.Uri
-import android.system.Os
 import android.util.AtomicFile
 import io.github.lcblauncher.core.ArchiveLimits
 import io.github.lcblauncher.core.ArchiveRejected
@@ -12,6 +11,8 @@ import io.github.lcblauncher.core.copyBounded
 import io.github.lcblauncher.core.sha256
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class LocalArchiveStore(private val context: Context) {
     private val directory = File(context.filesDir, "translation-audit")
@@ -61,7 +62,8 @@ class LocalArchiveStore(private val context: Context) {
                     it.write(audit.sha256.toByteArray(Charsets.US_ASCII))
                     it.fd.sync()
                 }
-                Os.rename(pointer.absolutePath, active.absolutePath)
+                Files.move(pointer.toPath(), active.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             } finally {
                 pointer.delete()
             }
