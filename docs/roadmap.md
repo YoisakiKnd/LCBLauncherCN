@@ -20,7 +20,7 @@
 - [x] 独立编写 base/split 快照、哈希与 base 证书校验、原生库提取和事务启用。
 - [x] 独立客体进程、DEX/资源加载、Java Context 目录映射和 Activity 执行。
 - [x] 原创普通客体 APK，以及 Android 16 模拟器上的执行与数据保留测试代码。
-- [ ] 云端运行测试通过（以 Actions 实际结果为准）。
+- [x] 云端 API 36 x86_64 模拟器执行通过：未安装客体的代码、资源、assets、独立 PID、二次导入数据保留和新进程重开。见 [运行 41034682899](https://github.com/YoisakiKnd/LCBLauncherCN/actions/runs/41034682899)。
 - [ ] vivo ARM64 自检和游戏首次实验启动。
 - [ ] 实际游戏 Application/Activity 绑定、必要组件调度与 Unity 标题页。
 - [ ] 原生 IO 映射、Google 登录、资源下载及后台恢复。

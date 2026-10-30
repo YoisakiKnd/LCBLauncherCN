@@ -34,6 +34,8 @@
 - 第二次导入代码不清除客体数据，计数递增；
 - 退出后下一次启动使用新进程。
 
+2026-10-30，[Actions 41034682899](https://github.com/YoisakiKnd/LCBLauncherCN/actions/runs/41034682899) 已通过全部检查。构建提交 `6792382`，版本 `0.2.0-container-alpha` / versionCode 14。19 项 JUnit/Robolectric 测试、4 项 Python 测试、1 项 API 36 x86_64 仪器测试通过；lint、APK 签名和对齐校验通过。仪器测试两次客体进程 PID 分别为 2534、2950，均实际走到 `guest_resumed`，退出走到 `guest_destroyed`。测试客体未安装到系统。
+
 vivo Android 16 / ARM64 的容器自检和 Limbus 实验启动仍需真机测试。若游戏失败，按最后执行阶段修复容器；不会把启动系统原版记成容器成功。
 
 ## 后续实现顺序
