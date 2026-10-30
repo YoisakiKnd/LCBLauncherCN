@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Process
 import android.util.AtomicFile
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
@@ -16,6 +17,9 @@ class ContainerJournal(context: Context) {
             .put("stage", stage).put("pid", Process.myPid()).put("uid", Process.myUid())
             .put("failureType", failure?.javaClass?.name ?: JSONObject.NULL)
             .put("translationImplemented", false)
+        val causes = generateSequence(failure) { it.cause }.take(8).toList()
+        json.put("failureChainTypes", JSONArray(causes.map { it.javaClass.name }))
+        json.put("failureFrames", JSONArray(causes.lastOrNull()?.stackTrace.orEmpty().take(8).map { "${it.className}.${it.methodName}" }))
         val stream = record.startWrite()
         try { stream.write(json.toString().toByteArray()); record.finishWrite(stream) }
         catch (error: Throwable) { record.failWrite(stream); throw error }

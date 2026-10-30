@@ -25,7 +25,7 @@ class GuestContext(host: Context, val guest: GuestPackage) : ContextWrapper(host
 
     override fun getPackageName(): String = guest.install.packageName
     // AppOps and system services must still use the real host identity. This is not a virtual PackageManager.
-    override fun getOpPackageName(): String = baseContext.opPackageName
+    override fun getOpPackageName(): String = if (android.os.Build.VERSION.SDK_INT >= 29) baseContext.opPackageName else baseContext.packageName
     override fun getApplicationInfo(): ApplicationInfo = guest.info
     override fun getApplicationContext(): Context = application ?: this
     override fun getClassLoader(): ClassLoader = loader
@@ -39,7 +39,7 @@ class GuestContext(host: Context, val guest: GuestPackage) : ContextWrapper(host
     override fun getCodeCacheDir(): File = directory("code_cache")
     override fun getNoBackupFilesDir(): File = directory("no_backup")
     override fun getFileStreamPath(name: String): File = named(filesDir, name)
-    override fun fileList(): Array<String> = filesDir.list().orEmpty()
+    override fun fileList(): Array<String> = filesDir.list().orEmpty().map { it }.toTypedArray()
     override fun openFileInput(name: String): FileInputStream = FileInputStream(getFileStreamPath(name))
     override fun openFileOutput(name: String, mode: Int): FileOutputStream {
         require(mode == MODE_PRIVATE || mode == MODE_APPEND) { "不支持共享客体私有文件" }
@@ -48,7 +48,7 @@ class GuestContext(host: Context, val guest: GuestPackage) : ContextWrapper(host
     override fun deleteFile(name: String): Boolean = getFileStreamPath(name).delete()
     override fun getDir(name: String, mode: Int): File = named(guest.data, "app_${safeName(name)}").apply { mkdirs() }
     override fun getDatabasePath(name: String): File = named(directory("databases"), name)
-    override fun databaseList(): Array<String> = directory("databases").list().orEmpty()
+    override fun databaseList(): Array<String> = directory("databases").list().orEmpty().map { it }.toTypedArray()
     override fun deleteDatabase(name: String): Boolean = SQLiteDatabase.deleteDatabase(getDatabasePath(name))
     override fun openOrCreateDatabase(name: String, mode: Int, factory: SQLiteDatabase.CursorFactory?): SQLiteDatabase =
         SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name), factory)

@@ -152,7 +152,6 @@ class ContainerStore(private val context: Context) {
             splitNames = json.getJSONArray("splits").let { names -> Array(names.length()) { names.getString(it) } }
             nativeLibraryDir = libraries.path
             dataDir = data.path
-            credentialProtectedDataDir = data.path
             deviceProtectedDataDir = File(data, "device-protected").apply { mkdirs() }.path
             uid = Process.myUid()
         }

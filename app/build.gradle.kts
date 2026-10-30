@@ -71,7 +71,10 @@ val stageContainerFixture by tasks.registering(Sync::class) {
     into(layout.buildDirectory.dir("generated/containerFixtureAssets"))
     rename { "container-fixture.apk" }
 }
-android.sourceSets.getByName("debug").assets.srcDir(stageContainerFixture.map { it.destinationDir })
+android.sourceSets.getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/containerFixtureAssets"))
+tasks.configureEach {
+    if (name == "mergeDebugAssets") dependsOn(stageContainerFixture)
+}
 dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
