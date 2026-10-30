@@ -208,12 +208,13 @@ private fun BoardingPass(state: LauncherState, onImport: () -> Unit, onLaunch: (
 @Composable
 private fun CompactBoardingPass(state: LauncherState, onImport: () -> Unit, onLaunch: () -> Unit) {
     val imported = state.container != null
-    Column(Modifier.fillMaxWidth().background(Ink, RoundedCornerShape(14.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Label(if (imported) "READY  /  游戏已导入" else "IMPORT  /  等待导入", Color(0xFFC4C7BC))
-        Text("Limbus Company", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = White)
+    Column(Modifier.fillMaxWidth().background(Ink, RoundedCornerShape(14.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Limbus Company", fontSize = 16.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, color = White, modifier = Modifier.weight(1f))
+            Text("汉化待接入", fontSize = 9.sp, lineHeight = 13.sp, color = Color(0xFFF0AAA0))
+        }
         PrimaryAction(if (imported) "测试容器启动" else "导入原版游戏", !state.busy &&
             (imported || state.snapshot?.game?.installed == true), if (imported) onLaunch else onImport)
-        Text("实验版 · 尚未提供游戏内汉化", fontSize = 11.sp, color = Color(0xFFD5D8CC))
         if (imported) TextButton(onClick = onImport, enabled = !state.busy) { Text("重新导入原版", color = White) }
         state.containerError?.let { Text(it, color = Color(0xFFF0AAA0), fontSize = 12.sp, lineHeight = 20.sp) }
     }
@@ -445,7 +446,7 @@ private fun KeyValue(label: String, value: String) {
 
 @Composable
 private fun Label(value: String, color: Color) {
-    Text(value, color = color, fontSize = 9.sp, fontFamily = FontFamily.Monospace, letterSpacing = .8.sp)
+    Text(value, color = color, fontSize = 9.sp, fontFamily = FontFamily.Monospace, lineHeight = 12.sp, letterSpacing = .8.sp)
 }
 
 @Composable
@@ -482,7 +483,7 @@ private fun TransitDrawing(modifier: Modifier) {
         val w = size.width; val h = size.height
         val subtle = Color(0xFF41473E)
         for (i in 0..7) drawLine(subtle.copy(alpha = .45f), Offset(w * .62f + i * 22.dp.toPx(), 0f), Offset(w * .34f + i * 22.dp.toPx(), h), 1.dp.toPx())
-        val x = w * .61f; val y = h * .60f
+        val x = w * .61f; val y = h * .65f
         drawCircle(Accent.copy(alpha = .23f), h * .24f, Offset(w * .85f, h * .75f))
         drawLine(Color(0xFF989E89), Offset(w * .60f, h * .87f), Offset(w * .95f, h * .87f), 1.dp.toPx())
         drawRoundRect(Color(0xFFDADAC9), Offset(x, y), Size(w * .28f, h * .20f), CornerRadius(5.dp.toPx()))

@@ -3,6 +3,7 @@ package io.github.lcblauncher
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Process
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -45,8 +46,14 @@ class ContainerExecutionTest {
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-tools.png")))
         device.findObject(By.desc("导航：启程")).click()
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 10_000))
+        device.waitForIdle()
         device.setOrientationLeft()
         device.waitForIdle()
+        // Accessibility can report idle before the recreated window's first frame reaches SurfaceFlinger.
+        SystemClock.sleep(1_000)
+        assertTrue(device.displayWidth > device.displayHeight)
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 10_000))
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home-landscape.png")))
         device.setOrientationNatural()
         device.unfreezeRotation()
