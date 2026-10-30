@@ -20,6 +20,7 @@ destination.mkdir(exist_ok=True)
 apk = destination / f"LCBLauncher-{element['versionName']}-debug.apk"
 shutil.copyfile(output / element['outputFile'], apk)
 shutil.copyfile(root / 'docs/testing-vivo-android16.md', destination / 'PHONE-TEST.md')
+shutil.copyfile(root / 'container-check/instrumentation.txt', destination / 'CONTAINER-TEST.txt')
 shutil.copyfile(root / 'apk-verification.txt', destination / 'APK-VERIFICATION.txt')
 sample = destination / 'LCBLauncher-audit-sample.zip'
 with zipfile.ZipFile(sample, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
@@ -31,6 +32,9 @@ with zipfile.ZipFile(sample, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
     'commit': os.environ.get('GITHUB_SHA'),
     'runId': os.environ.get('GITHUB_RUN_ID'),
     'translationImplemented': False,
+    'containerEngine': 'independent-activity-alpha',
+    'limbusCompatibilityVerified': False,
+    'nativeIoVirtualized': False,
     'signing': 'debug-test-only',
 }, indent=2) + '\n')
 checksums = []

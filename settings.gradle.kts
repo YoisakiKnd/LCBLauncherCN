@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "LCBLauncher"
-include(":app", ":core")
+include(":app", ":core", ":container-fixture")

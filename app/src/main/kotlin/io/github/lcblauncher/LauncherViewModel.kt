@@ -4,6 +4,9 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.lcblauncher.container.ContainerInstall
+import io.github.lcblauncher.container.ContainerStore
+import io.github.lcblauncher.container.ContainerJournal
 import io.github.lcblauncher.core.ArchiveRejected
 import io.github.lcblauncher.core.TranslationArchive
 import io.github.lcblauncher.data.LocalArchiveStore
@@ -21,6 +24,8 @@ import java.time.Instant
 
 data class LauncherState(
     val snapshot: ProbeSnapshot? = null,
+    val container: ContainerInstall? = null,
+    val containerStage: String? = null,
     val archive: TranslationArchive? = null,
     val busy: Boolean = true,
     val busyLabel: String = "正在读取设备信息…",
@@ -47,6 +52,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val snapshot = withContext(Dispatchers.IO) { probe.capture() }
+                val container = withContext(Dispatchers.IO) { ContainerStore(getApplication()).installed() }
+                val session = withContext(Dispatchers.IO) { ContainerJournal(getApplication()).read() }
                 var cacheMessage: String? = null
                 val archive = if (initial) withContext(Dispatchers.IO) {
                     try { archives.load() } catch (_: Exception) {
@@ -54,12 +61,36 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                         null
                     }
                 } else mutable.value.archive
-                mutable.value = mutable.value.copy(snapshot = snapshot, archive = archive, busy = false,
+                mutable.value = mutable.value.copy(snapshot = snapshot, archive = archive, container = container,
+                    containerStage = session?.optString("stage"), busy = false,
                     message = cacheMessage ?: if (initial) null else "检测信息已刷新")
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 mutable.value = mutable.value.copy(busy = false, message = "设备检测失败，请重试")
+            }
+        }
+    }
+
+
+    fun importContainer(fixture: Boolean, onReady: () -> Unit = {}) {
+        if (mutable.value.busy) return
+        mutable.value = mutable.value.copy(busy = true,
+            busyLabel = if (fixture) "正在准备容器自检客体…" else "正在复制和校验原版分包，请保持本页打开…", message = null)
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val store = ContainerStore(getApplication())
+                    if (fixture) store.importFixture() else store.importGame()
+                }
+                mutable.value = mutable.value.copy(busy = false,
+                    container = if (fixture) mutable.value.container else result,
+                    message = if (fixture) null else "原版 APK 已导入容器。系统原版数据不会迁移；游戏兼容与汉化仍待验证。")
+                onReady()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                mutable.value = mutable.value.copy(busy = false,
+                    message = "容器导入失败：${if (e is IllegalArgumentException || e is IOException) e.message else e.javaClass.simpleName}")
             }
         }
     }
@@ -90,7 +121,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val report = ProbeReport.create(snapshot, captured.archive, captured.lastLaunchAt, captured.feedback)
+                    val report = org.json.JSONObject(ProbeReport.create(snapshot, captured.archive, captured.lastLaunchAt, captured.feedback)).apply {
+                        put("container", org.json.JSONObject().apply {
+                            put("engine", "independent-activity-alpha")
+                            put("gameImported", captured.container != null)
+                            put("gameVersion", captured.container?.version ?: org.json.JSONObject.NULL)
+                            put("lastSession", ContainerJournal(getApplication()).read() ?: org.json.JSONObject.NULL)
+                            put("nativeIoVirtualized", false)
+                            put("googleLoginVerified", false)
+                        })
+                    }.toString(2)
                     val output = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
                         ?: throw IOException("No output stream")
                     output.use { it.write(report.toByteArray(Charsets.UTF_8)) }

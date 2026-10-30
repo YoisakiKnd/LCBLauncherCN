@@ -11,6 +11,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.lcblauncher.container.ContainerActivity
+import io.github.lcblauncher.container.ContainerStore
 import io.github.lcblauncher.core.ProbePolicy
 import io.github.lcblauncher.ui.LauncherApp
 import java.time.LocalDate
@@ -35,6 +37,9 @@ class MainActivity : ComponentActivity() {
                 state = model.state.collectAsStateWithLifecycle().value,
                 onRefresh = { model.refresh() },
                 onLaunchOriginal = ::launchOriginal,
+                onImportGame = { model.importContainer(false) },
+                onLaunchContainer = { launchContainer(ProbePolicy.GAME_PACKAGE) },
+                onContainerSelfTest = { model.importContainer(true) { launchContainer(ContainerStore.FIXTURE_PACKAGE) } },
                 onImport = { importArchive.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) },
                 onExport = { exportReport.launch("LCBLauncher-diagnostic-${LocalDate.now()}.json") },
                 onAppSettings = ::openAppSettings,
@@ -47,6 +52,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         model.refresh()
+    }
+
+    private fun launchContainer(guest: String) {
+        startActivity(Intent(this, ContainerActivity::class.java).putExtra(ContainerActivity.EXTRA_PACKAGE, guest))
     }
 
     private fun launchOriginal() {

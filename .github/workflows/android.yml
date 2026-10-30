@@ -18,7 +18,7 @@ jobs:
   build:
     name: Build, test and verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       ANDROID_USER_HOME: ${{ github.workspace }}/.tools/android-user-home
     steps:
@@ -51,6 +51,10 @@ jobs:
         timeout-minutes: 18
         run: bash scripts/ci-build.sh
 
+      - name: Execute uninstalled guest APK on Android 16
+        timeout-minutes: 15
+        run: bash scripts/ci-container-smoke.sh
+
       - name: Verify APK signature, permissions and alignment
         shell: bash
         run: python3 scripts/verify-apk.py | tee apk-verification.txt
@@ -61,7 +65,7 @@ jobs:
       - name: Upload APK and phone test instructions
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: LCBLauncher-probe-apk
+          name: LCBLauncher-container-alpha-apk
           path: dist/
           if-no-files-found: error
           retention-days: 14
@@ -73,6 +77,7 @@ jobs:
         with:
           name: LCBLauncher-check-reports
           path: |
+            container-check/
             core/build/reports/tests/
             core/build/test-results/
             app/build/reports/

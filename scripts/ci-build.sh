@@ -8,4 +8,4 @@ fi
 exec ./gradlew --no-daemon --max-workers=2 \
     '-Dorg.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:ActiveProcessorCount=2 -Dfile.encoding=UTF-8' \
     -PprobeTestHeap=768m -PprobeTestMetaspace=384m \
-    :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain
+    :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --console=plain

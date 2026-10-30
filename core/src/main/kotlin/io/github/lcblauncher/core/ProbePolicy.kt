@@ -9,6 +9,6 @@ object ProbePolicy {
     // No runtime adapter has been implemented or verified. Hardware detection must never enable it.
     fun translationRuntime(): RuntimeReadiness = RuntimeReadiness(
         available = false,
-        explanation = "汉化运行接入尚未实现；当前仅支持原版启动、设备诊断和离线汉化包检查。",
+        explanation = "汉化运行接入尚未实现；当前可测试自主容器的 APK 导入和 Activity 执行，游戏原生路径、登录与中文显示仍待验证。",
     )
 }

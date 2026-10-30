@@ -50,6 +50,9 @@ fun LauncherApp(
     state: LauncherState,
     onRefresh: () -> Unit,
     onLaunchOriginal: () -> Unit,
+    onImportGame: () -> Unit,
+    onLaunchContainer: () -> Unit,
+    onContainerSelfTest: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
     onAppSettings: () -> Unit,
@@ -58,6 +61,7 @@ fun LauncherApp(
 ) {
     var selectedPage by rememberSaveable { mutableStateOf(Page.HOME.name) }
     var showLaunchDialog by rememberSaveable { mutableStateOf(false) }
+    var showContainerDialog by rememberSaveable { mutableStateOf(false) }
     val page = Page.valueOf(selectedPage)
     val snackbar = remember { SnackbarHostState() }
     val theme = darkColorScheme(
@@ -107,7 +111,8 @@ fun LauncherApp(
                     }
                     when (page) {
                         Page.HOME -> Home(state, { showLaunchDialog = true }, { selectedPage = Page.ARCHIVE.name },
-                            { selectedPage = Page.DIAGNOSTICS.name }, onRefresh)
+                            { selectedPage = Page.DIAGNOSTICS.name }, onRefresh,
+                            onImportGame, { showContainerDialog = true }, onContainerSelfTest)
                         Page.ARCHIVE -> ArchivePage(state, onImport)
                         Page.DIAGNOSTICS -> DiagnosticsPage(state, onRefresh, onExport, onAppSettings, onFeedback)
                     }
@@ -115,6 +120,15 @@ fun LauncherApp(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                 }
             }
+        }
+        if (showContainerDialog) {
+            AlertDialog(
+                onDismissRequest = { showContainerDialog = false },
+                title = { Text("实验性容器启动") },
+                text = { Text("将在启动器的独立进程内执行已导入的游戏代码。原生路径、Google 登录和游戏兼容仍未完成验证，可能失败或闪退；此版尚未接入汉化。不会回退启动系统原版。") },
+                confirmButton = { TextButton(onClick = { showContainerDialog = false; onLaunchContainer() }) { Text("测试容器启动") } },
+                dismissButton = { TextButton(onClick = { showContainerDialog = false }) { Text("取消") } },
+            )
         }
         if (showLaunchDialog) {
             AlertDialog(
@@ -139,17 +153,19 @@ private fun Header(page: Page) {
             Text("边狱启程", fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
             Text(page.subtitle, fontSize = 11.sp, color = Muted)
         }
-        Text("PROBE / 01", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Gold)
+        Text("CONTAINER / α", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Gold)
     }
 }
 
 @Composable
-private fun Home(state: LauncherState, onLaunch: () -> Unit, onArchive: () -> Unit, onDiagnostics: () -> Unit, onRefresh: () -> Unit) {
+private fun Home(state: LauncherState, onLaunch: () -> Unit, onArchive: () -> Unit, onDiagnostics: () -> Unit, onRefresh: () -> Unit,
+    onImportGame: () -> Unit, onContainer: () -> Unit, onSelfTest: () -> Unit) {
     Hero()
     BoxWithConstraints {
         if (maxWidth >= 720.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    ContainerCard(state, onImportGame, onContainer, onSelfTest)
                     GameCard(state, onLaunch, onRefresh)
                     RuntimeCard()
                 }
@@ -160,6 +176,7 @@ private fun Home(state: LauncherState, onLaunch: () -> Unit, onArchive: () -> Un
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                ContainerCard(state, onImportGame, onContainer, onSelfTest)
                 GameCard(state, onLaunch, onRefresh)
                 RuntimeCard()
                 QuickDeviceCard(state, onDiagnostics)
@@ -178,8 +195,28 @@ private fun Hero() {
             Text("LCB LAUNCHER  /  自主开发", color = Gold, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
             Text("下一站，\n中文世界。", fontSize = 34.sp, lineHeight = 45.sp, fontWeight = FontWeight.Bold, color = Ink)
             Text("从一次可靠的启动开始。", color = Ink.copy(alpha = .65f), fontSize = 13.sp)
-            StatusPill("开发测试版 · 汉化接入待实现", Gold)
+            StatusPill("自主容器实验版 · 汉化接入待实现", Gold)
         }
+    }
+}
+
+@Composable
+private fun ContainerCard(state: LauncherState, onImport: () -> Unit, onLaunch: () -> Unit, onSelfTest: () -> Unit) {
+    Panel {
+        SectionHeading("α", "自主容器", "实验阶段")
+        Text("在独立进程内运行", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Text("先运行自检，再导入原版分包测试。此版本尚未验证游戏兼容，也不提供游戏内汉化。",
+            color = Muted, fontSize = 13.sp, lineHeight = 21.sp)
+        state.container?.let {
+            KeyValue("已导入版本", it.version)
+            KeyValue("安装包", "${it.apkCount} 个 · ${formatBytes(it.bytes)}")
+        }
+        state.containerStage?.let { KeyValue("上次执行阶段", it) }
+        OutlinedButton(onClick = onSelfTest, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text("运行容器自检") }
+        Button(onClick = onImport, enabled = !state.busy && state.snapshot?.game?.installed == true,
+            modifier = Modifier.fillMaxWidth()) { Text(if (state.container == null) "导入已安装的原版游戏" else "重新导入原版游戏") }
+        Button(onClick = onLaunch, enabled = !state.busy && state.container != null, modifier = Modifier.fillMaxWidth()) { Text("实验启动容器内游戏") }
+        Text("导入会额外占用安装包空间；原版存档与已下载资源暂不迁移。自检客体由本项目编写。", color = Muted, fontSize = 12.sp)
     }
 }
 

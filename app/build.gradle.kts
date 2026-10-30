@@ -15,7 +15,8 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toIntOrNull() ?: 1
-        versionName = "0.1.0-probe"
+        versionName = "0.2.0-container-alpha"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -61,4 +62,18 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.16.1")
+}
+
+// Embed only our original test guest. User game APKs are imported on the phone, never shipped.
+val stageContainerFixture by tasks.registering(Sync::class) {
+    dependsOn(":container-fixture:assembleDebug")
+    from(project(":container-fixture").layout.buildDirectory.file("outputs/apk/debug/container-fixture-debug.apk"))
+    into(layout.buildDirectory.dir("generated/containerFixtureAssets"))
+    rename { "container-fixture.apk" }
+}
+android.sourceSets.getByName("debug").assets.srcDir(stageContainerFixture.map { it.destinationDir })
+dependencies {
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
 }

@@ -32,10 +32,12 @@ minimum, target = sdk_levels(manifest)
 print(f"Compiled manifest SDK range: min={minimum}, target={target}")
 assert (minimum, target) == (26, 36), "Unexpected SDK range"
 permissions = run(tools / "aapt2", "dump", "permissions", apk)
-for permission in ["INTERNET", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "MANAGE_EXTERNAL_STORAGE",
+for permission in ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "MANAGE_EXTERNAL_STORAGE",
                    "QUERY_ALL_PACKAGES", "REQUEST_INSTALL_PACKAGES"]:
     assert "android.permission." + permission not in permissions, f"Unexpected permission: {permission}"
-print("Package, SDK and restricted-permission checks passed")
+for permission in ["INTERNET", "ACCESS_NETWORK_STATE"]:
+    assert "android.permission." + permission in permissions, f"Missing guest networking permission: {permission}"
+print("Package, SDK and restricted-permission checks passed (guest networking allowed)")
 
 with zipfile.ZipFile(apk) as archive:
     for name in archive.namelist():
