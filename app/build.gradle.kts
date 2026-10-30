@@ -65,15 +65,25 @@ dependencies {
 }
 
 // Embed only our original test guest. User game APKs are imported on the phone, never shipped.
-val stageContainerFixture by tasks.registering(Sync::class) {
-    dependsOn(":container-fixture:assembleDebug")
-    from(project(":container-fixture").layout.buildDirectory.file("outputs/apk/debug/container-fixture-debug.apk"))
-    into(layout.buildDirectory.dir("generated/containerFixtureAssets"))
-    rename { "container-fixture.apk" }
+abstract class StageContainerFixture : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val sourceApk: RegularFileProperty
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction fun stage() {
+        val destination = outputDirectory.get().asFile.apply { mkdirs() }
+        sourceApk.get().asFile.copyTo(destination.resolve("container-fixture.apk"), overwrite = true)
+    }
 }
-android.sourceSets.getByName("debug").assets.srcDir(layout.buildDirectory.dir("generated/containerFixtureAssets"))
-tasks.configureEach {
-    if (name == "mergeDebugAssets") dependsOn(stageContainerFixture)
+val stageContainerFixture by tasks.registering(StageContainerFixture::class) {
+    dependsOn(":container-fixture:assembleDebug")
+    sourceApk.set(project(":container-fixture").layout.buildDirectory.file("outputs/apk/debug/container-fixture-debug.apk"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/containerFixtureAssets"))
+}
+androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
+    variant.sources.assets?.addGeneratedSourceDirectory(stageContainerFixture, StageContainerFixture::outputDirectory)
 }
 dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
