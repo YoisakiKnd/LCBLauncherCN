@@ -20,6 +20,9 @@ test -f "$ANDROID_AVD_HOME/lcb-api36.ini"
 emulator_pid=$!
 cleanup() {
     timeout 10 adb logcat -d -s LCBContainer:I AndroidRuntime:E > container-check/runtime.txt 2>&1 || true
+    for image in ui-home.png ui-archive.png ui-tools.png ui-home-landscape.png; do
+        timeout 5 adb exec-out run-as io.github.lcblauncher cat "cache/$image" > "container-check/$image" 2>/dev/null || rm -f "container-check/$image"
+    done
     timeout 5 adb emu kill >/dev/null 2>&1 || true
     kill "$emulator_pid" 2>/dev/null || true
 }

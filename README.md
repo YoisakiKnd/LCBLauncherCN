@@ -1,6 +1,6 @@
 # 边狱启程 · LCBLauncher
 
-自主开发的《Limbus Company》Android 中文启动器项目，当前为 **0.2.0-container-alpha 自主容器实验版**。
+自主开发的《Limbus Company》Android 中文启动器项目，当前为 **0.2.1-container-alpha 自主容器实验版**。
 
 **这一版尚未实现游戏内汉化，尚未验证游戏在容器内可运行。** 已加入独立编写的 APK 分包导入、DexClassLoader、客体资源及 Java 存储映射和独立进程 Activity 执行。首页提供真实的「容器自检」「导入原版」「实验启动容器内游戏」入口；容器失败不会回退打开系统原版。
 
@@ -12,7 +12,7 @@
 
 进入 [GitHub Actions](https://github.com/YoisakiKnd/LCBLauncherCN/actions/workflows/android.yml) 查看 `Android APK` 工作流。推送到 `main`、提交 PR 或手动运行时，GitHub 托管 runner 会执行构建、Android 16 主机测试、静态检查，以及 APK 签名和对齐检查，并在云端 Android 16 模拟器执行未安装 APK 的容器仪器测试。
 
-选择最近一次成功运行，在页面底部的 **Artifacts** 下载 **LCBLauncher-container-alpha-apk**，解压后安装其中的 `LCBLauncher-0.2.0-container-alpha-debug.apk`。同一产物包含测试步骤、SHA-256 校验、签名与对齐校验记录，以及自主编写的 ZIP 结构检查示例。示例不是游戏汉化包。单独的 `LCBLauncher-check-reports` 保存测试和 lint 报告；产物保留 14 天。下载 Actions 产物通常需要登录 GitHub。
+选择最近一次成功运行，在页面底部的 **Artifacts** 下载 **LCBLauncher-container-alpha-apk**，解压后安装其中的 `LCBLauncher-0.2.1-container-alpha-debug.apk`。同一产物包含测试步骤、SHA-256 校验、签名与对齐校验记录，以及自主编写的 ZIP 结构检查示例。示例不是游戏汉化包。单独的 `LCBLauncher-check-reports` 保存测试和 lint 报告；产物保留 14 天。下载 Actions 产物通常需要登录 GitHub。
 
 服务器不再用于编译。工作流设置了超时、并发去重和资源上限；`scripts/ci-build.sh` 拒绝在 GitHub Actions 之外运行。云端 `versionCode` 使用工作流运行编号。
 

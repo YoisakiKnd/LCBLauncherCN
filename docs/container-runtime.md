@@ -7,7 +7,7 @@
 1. 从系统 PackageManager 读取指定原版游戏的 base/split 安装路径、启动 Activity 和签名。
 2. 在手机上流式复制完整分包集到启动器私有目录；复制过程中设置 APK 只读，符合 Android 14 以后的动态代码加载约束。
 3. 对全部分包比较来源与副本 SHA-256，并验证复制后的 base 包名、版本和签名。分包签名由系统安装过程验证；不宣称本项目独立实现了 split APK 签名校验器。
-4. 有界提取当前 ABI 的原生库，拒绝危险文件名和冲突的同名库；原子启用代码快照，客体数据单独保留。
+4. 按展开大小预检空间，有界提取当前 ABI 的原生库（单库 1 GiB、总量 2 GiB、256 项），使用 64 KiB 流式缓冲；拒绝危险文件名和冲突的同名库；原子启用代码快照，客体数据单独保留。
 5. 系统启动宿主声明的 `:container` 进程；用 DexClassLoader 加载复制后的代码，客体 Resources 包含 base 与 splits。
 6. 通过公开的 Instrumentation API 创建客体 Application 和普通 Activity，嵌入客体 Window 并转发生命周期。这条路径实际执行客体 DEX，不通过系统 Intent 打开原版。
 7. Java Context 的文件、数据库、缓存和外部目录 API 指向容器目录；SharedPreferences 使用独立的宿主前缀。原版游戏数据不迁移。
@@ -51,3 +51,9 @@ vivo Android 16 / ARM64 的容器自检和 Limbus 实验启动仍需真机测试
 - [Android 16 Instrumentation 实现](https://android.googlesource.com/platform/frameworks/base/+/android-16.0.0_r1/core/java/android/app/Instrumentation.java)：核对公开接口的实际绑定边界，未复制实现。
 - [Android 14 动态代码加载要求](https://developer.android.com/about/versions/14/behavior-changes-14#safer-dynamic-code-loading)：加载的代码必须只读。
 - [DexClassLoader](https://developer.android.com/reference/dalvik/system/DexClassLoader)：APK/DEX 与原生库搜索路径。
+
+## 0.2.1 真机反馈修复
+
+vivo 真机反馈自检两次成功，第二次计数为 2；尚未导入游戏。旧版单原生库 128 MiB 限制导致导入报错（原错误也可能表示条目数量超限，未包含实际库名与大小）。新版将上限调整为单库 1 GiB、总量 2 GiB，在复制 APK 之前检查所需空间，并为超限报告具体库名、展开大小与上限。解压保持 64 KiB 缓冲，不将大库读入内存。新增 129 MiB 库的真实流式导入回归测试，以及总量、路径与同名冲突测试。
+
+界面改为米白 / 炭黑 / 朱红配色，首页聚焦导入与实验启动，资源与工具页分别呈现离线资源及诊断，设备详情折叠；导入错误在首页持续保留。云端模拟器会生成三页及横屏截图供视觉复核。

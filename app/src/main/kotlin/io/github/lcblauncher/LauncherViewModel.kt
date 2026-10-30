@@ -17,6 +17,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -26,6 +27,7 @@ data class LauncherState(
     val snapshot: ProbeSnapshot? = null,
     val container: ContainerInstall? = null,
     val containerStage: String? = null,
+    val containerError: String? = null,
     val archive: TranslationArchive? = null,
     val busy: Boolean = true,
     val busyLabel: String = "正在读取设备信息…",
@@ -75,13 +77,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun importContainer(fixture: Boolean, onReady: () -> Unit = {}) {
         if (mutable.value.busy) return
-        mutable.value = mutable.value.copy(busy = true,
+        mutable.value = mutable.value.copy(busy = true, containerError = null,
             busyLabel = if (fixture) "正在准备容器自检客体…" else "正在复制和校验原版分包，请保持本页打开…", message = null)
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
                     val store = ContainerStore(getApplication())
-                    if (fixture) store.importFixture() else store.importGame()
+                    if (fixture) store.importFixture() else store.importGame { label -> mutable.update { it.copy(busyLabel = label) } }
                 }
                 mutable.value = mutable.value.copy(busy = false,
                     container = if (fixture) mutable.value.container else result,
@@ -89,8 +91,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 onReady()
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
-                mutable.value = mutable.value.copy(busy = false,
-                    message = "容器导入失败：${if (e is IllegalArgumentException || e is IOException) e.message else e.javaClass.simpleName}")
+                val reason = if (e is IllegalArgumentException || e is IOException) e.message else e.javaClass.simpleName
+                mutable.value = mutable.value.copy(busy = false, containerError = "导入失败：$reason",
+                    message = "游戏未导入，请查看首页的错误详情。")
             }
         }
     }

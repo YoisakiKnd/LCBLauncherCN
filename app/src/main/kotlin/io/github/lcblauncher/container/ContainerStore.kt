@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Process
 import android.util.AtomicFile
 import io.github.lcblauncher.core.ProbePolicy
+import io.github.lcblauncher.core.NativeLibraries
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -17,7 +18,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
-import java.util.zip.ZipFile
 
 data class ContainerInstall(val packageName: String, val version: String, val versionCode: Long,
     val apkCount: Int, val bytes: Long, val activity: String)
@@ -33,7 +33,8 @@ class ContainerStore(private val context: Context) {
         return try { readRecord(packageName)?.let(::installInfo) } catch (_: Exception) { null }
     }
 
-    fun importGame(): ContainerInstall {
+    fun importGame(onProgress: (String) -> Unit = {}): ContainerInstall {
+        onProgress("正在检查安装包与原生库大小…")
         if (Build.VERSION.SDK_INT < 28) throw IOException("实验容器导入暂需 Android 9 或以上")
         val pm = context.packageManager
         @Suppress("DEPRECATION")
@@ -48,12 +49,11 @@ class ContainerStore(private val context: Context) {
         require(sources.size in 1..64 && sources.all { it.isFile && it.canRead() }) { "无法读取完整的 base/split APK" }
         val total = sources.sumOf { it.length() }
         require(total in 1..MAX_APK_TOTAL && sources.all { it.length() in 1..MAX_APK_BYTES }) { "安装包大小超出导入上限" }
-        require(root.apply { mkdirs() }.usableSpace > total + NATIVE_TOTAL + 64L * 1024 * 1024) { "空间不足，请保留至少 600 MiB 余量" }
         val versionCode = if (Build.VERSION.SDK_INT >= 28) pkg.longVersionCode else @Suppress("DEPRECATION") pkg.versionCode.toLong()
         val signers = pkg.signingInfo?.apkContentsSigners.orEmpty().map { sha(it.toByteArray()) }.sorted()
         require(signers.isNotEmpty()) { "无法读取原版签名，拒绝导入" }
         return stage(ProbePolicy.GAME_PACKAGE, pkg.versionName ?: "unknown", versionCode, activity.name,
-            sources, signers, info.splitNames?.toList().orEmpty()) { snapshots ->
+            sources, signers, info.splitNames?.toList().orEmpty(), onProgress) { snapshots ->
             // Android already verified the installed split set. Rehash every OS-owned source after
             // copying; parse the copied base certificate separately (PackageManager rejects standalone splits).
             sources.zip(snapshots).forEach { (source, snapshot) ->
@@ -83,12 +83,19 @@ class ContainerStore(private val context: Context) {
     }
 
     private fun stage(packageName: String, version: String, versionCode: Long, activity: String,
-        sources: List<File>, signers: List<String>, splits: List<String>, verify: (List<File>) -> Unit): ContainerInstall {
+        sources: List<File>, signers: List<String>, splits: List<String>, onProgress: (String) -> Unit = {},
+        verify: (List<File>) -> Unit): ContainerInstall {
+        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: throw IOException("未知 CPU 架构")
+        val nativePlan = NativeLibraries.plan(sources, abi)
+        val needed = sources.sumOf { it.length() } + nativePlan.expandedBytes + 64L * 1024 * 1024
+        val available = root.apply { mkdirs() }.usableSpace
+        require(available > needed) { "空间不足：本次导入需 ${NativeLibraries.size(needed)}，当前可用 ${NativeLibraries.size(available)}" }
         val home = home(packageName).apply { mkdirs() }
         val staging = File(home, "staging-${UUID.randomUUID()}").apply { check(mkdirs()) }
         try {
             val records = JSONArray()
             val copied = sources.mapIndexed { index, source ->
+                onProgress("正在复制游戏安装包（${index + 1}/${sources.size}）…")
                 val name = if (index == 0) "base.apk" else "split-%03d.apk".format(java.util.Locale.ROOT, index)
                 val destination = File(staging, name)
                 val before = source.length()
@@ -97,8 +104,13 @@ class ContainerStore(private val context: Context) {
                 records.put(JSONObject().put("name", name).put("bytes", destination.length()).put("sha256", sha(destination)))
                 destination
             }
+            onProgress("正在校验安装包完整性…")
             verify(copied)
-            val native = extractLibraries(copied, File(staging, "lib"))
+            val libraries = NativeLibraries.extract(copied, abi, File(staging, "lib"), onLibrary = onProgress)
+            val native = JSONArray().apply { libraries.forEach { library ->
+                put(JSONObject().put("name", library.name).put("bytes", library.bytes).put("sha256", library.sha256))
+            } }
+            onProgress("正在保存容器安装信息…")
             val json = JSONObject().put("schema", 1).put("package", packageName).put("version", version)
                 .put("versionCode", versionCode).put("activity", activity).put("apks", records)
                 .put("signers", JSONArray(signers)).put("splits", JSONArray(splits)).put("libraries", native)
@@ -162,52 +174,6 @@ class ContainerStore(private val context: Context) {
         return GuestPackage(install, info, resolved, apks, data, libraries)
     }
 
-    private fun extractLibraries(apks: List<File>, output: File): JSONArray {
-        output.mkdirs()
-        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: throw IOException("未知 CPU 架构")
-        val hashes = linkedMapOf<String, String>()
-        var total = 0L
-        apks.forEach { apk -> ZipFile(apk).use { zip ->
-            val entries = zip.entries()
-            while (entries.hasMoreElements()) {
-                val entry = entries.nextElement()
-                if (entry.isDirectory || !entry.name.startsWith("lib/$abi/")) continue
-                val name = entry.name.removePrefix("lib/$abi/")
-                require(name.matches(Regex("lib[A-Za-z0-9_.+-]+\\.so"))) { "无效的原生库路径" }
-                require(entry.size in 1..NATIVE_ENTRY && hashes.size < 256) { "原生库超出限制" }
-                total += entry.size
-                require(total <= NATIVE_TOTAL) { "原生库总大小超出限制" }
-                val temp = File(output, "extract-${UUID.randomUUID()}")
-                try {
-                    zip.getInputStream(entry).use { input ->
-                        FileOutputStream(temp).use { stream ->
-                            var copied = 0L
-                            val buffer = ByteArray(64 * 1024)
-                            while (true) {
-                                val read = input.read(buffer)
-                                if (read < 0) break
-                                copied += read
-                                require(copied <= NATIVE_ENTRY && copied <= entry.size) { "原生库实际大小超出限制" }
-                                stream.write(buffer, 0, read)
-                            }
-                            require(copied == entry.size)
-                            stream.fd.sync()
-                        }
-                    }
-                    val digest = sha(temp)
-                    val previous = hashes[name]
-                    require(previous == null || previous == digest) { "分包包含冲突的同名原生库" }
-                    if (previous == null) {
-                        check(temp.setReadOnly())
-                        Files.move(temp.toPath(), File(output, name).toPath(), StandardCopyOption.ATOMIC_MOVE)
-                        hashes[name] = digest
-                    }
-                } finally { temp.delete() }
-            }
-        } }
-        return JSONArray().apply { hashes.forEach { (name, digest) -> put(JSONObject().put("name", name).put("sha256", digest)) } }
-    }
-
     private fun readRecord(packageName: String): JSONObject? {
         val file = AtomicFile(File(home(packageName), "active.json"))
         if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return null
@@ -230,8 +196,6 @@ class ContainerStore(private val context: Context) {
         const val FIXTURE_PACKAGE = "io.github.lcblauncher.fixture"
         private const val MAX_APK_BYTES = 4L * 1024 * 1024 * 1024
         private const val MAX_APK_TOTAL = 8L * 1024 * 1024 * 1024
-        private const val NATIVE_ENTRY = 128L * 1024 * 1024
-        private const val NATIVE_TOTAL = 512L * 1024 * 1024
         private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         private fun sha(file: File): String {
             val digest = MessageDigest.getInstance("SHA-256")

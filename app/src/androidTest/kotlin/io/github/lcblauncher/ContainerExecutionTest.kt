@@ -31,6 +31,26 @@ class ContainerExecutionTest {
             } catch (_: PackageManager.NameNotFoundException) { /* expected */ }
         }
         assertNotInstalled()
+        // Capture the actual app for visual review; these images are not game compatibility evidence.
+        context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        assertTrue(device.wait(Until.hasObject(By.text("导入原版游戏")), 15_000))
+        device.waitForIdle()
+        assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home.png")))
+        device.findObject(By.desc("导航：资源")).click()
+        assertTrue(device.wait(Until.hasObject(By.text("资源档案")), 10_000))
+        device.waitForIdle()
+        assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-archive.png")))
+        device.findObject(By.desc("导航：工具")).click()
+        assertTrue(device.wait(Until.hasObject(By.text("工具与诊断")), 10_000))
+        device.waitForIdle()
+        assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-tools.png")))
+        device.findObject(By.desc("导航：启程")).click()
+        device.setOrientationLeft()
+        device.waitForIdle()
+        assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home-landscape.png")))
+        device.setOrientationNatural()
+        device.unfreezeRotation()
+        device.waitForIdle()
         File(context.filesDir, "container/${ContainerStore.FIXTURE_PACKAGE}").deleteRecursively()
         var previousPid = Process.myPid()
         for (count in 1..2) {
