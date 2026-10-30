@@ -48,7 +48,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     init { refresh(initial = true) }
 
-    fun refresh(initial: Boolean = false) {
+    fun refresh(initial: Boolean = false, announce: Boolean = true) {
         if (!initial && mutable.value.busy) return
         mutable.value = mutable.value.copy(busy = true, busyLabel = "正在检查设备与游戏…")
         viewModelScope.launch {
@@ -65,7 +65,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 } else mutable.value.archive
                 mutable.value = mutable.value.copy(snapshot = snapshot, archive = archive, container = container,
                     containerStage = session?.optString("stage"), busy = false,
-                    message = cacheMessage ?: if (initial) null else "检测信息已刷新")
+                    message = cacheMessage ?: if (initial || !announce) null else "检测信息已刷新")
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

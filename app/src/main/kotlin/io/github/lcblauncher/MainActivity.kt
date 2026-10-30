@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        model.refresh()
+        model.refresh(announce = false)
     }
 
     private fun launchContainer(guest: String) {

@@ -33,7 +33,7 @@ class ContainerExecutionTest {
         assertNotInstalled()
         // Capture the actual app for visual review; these images are not game compatibility evidence.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue(device.wait(Until.hasObject(By.text("导入原版游戏")), 15_000))
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 15_000))
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home.png")))
         device.findObject(By.desc("导航：资源")).click()
