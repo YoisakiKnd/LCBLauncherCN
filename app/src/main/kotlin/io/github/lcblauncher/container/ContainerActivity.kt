@@ -8,11 +8,11 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Process
-import android.view.KeyEvent
-import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import io.github.lcblauncher.core.ProbePolicy
 
 /**
@@ -21,7 +21,7 @@ import io.github.lcblauncher.core.ProbePolicy
  * launch fallback. This does not yet implement a virtual ActivityManager, providers, services or JNI IO.
  */
 @Suppress("DEPRECATION")
-class ContainerActivity : Activity() {
+class ContainerActivity : ComponentActivity() {
     private val instrumentation = Instrumentation()
     private var guest: Activity? = null
     private var guestStarted = false
@@ -36,6 +36,9 @@ class ContainerActivity : Activity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { finish() }
+        })
         guestPackage = intent.getStringExtra(EXTRA_PACKAGE) ?: ProbePolicy.GAME_PACKAGE
         require(guestPackage == ProbePolicy.GAME_PACKAGE || guestPackage == ContainerStore.FIXTURE_PACKAGE)
         journal = ContainerJournal(this)
@@ -134,10 +137,6 @@ class ContainerActivity : Activity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         guest?.let { guarded { it.onConfigurationChanged(newConfig) } }
-    }
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_BACK) return super.dispatchKeyEvent(event)
-        return guest?.dispatchKeyEvent(event) ?: super.dispatchKeyEvent(event)
     }
 
     private fun record(value: String) { stage = value; journal.write(guestPackage, value) }
