@@ -6,23 +6,28 @@ if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
 fi
 
 # GitHub-hosted runner only. The fixture APK stays uninstalled inside the host's private directory.
-mkdir -p container-check
-sdkmanager 'emulator' 'system-images;android-36;google_apis;x86_64'
+# avdmanager honors ANDROID_USER_HOME; emulator 37 still searches ANDROID_AVD_HOME first.
+# Set one explicit AVD location for both tools, independent of the debug-keystore directory.
+export ANDROID_AVD_HOME="${RUNNER_TEMP:?GitHub runner temp directory is required}/lcb-avd"
+mkdir -p container-check "$ANDROID_AVD_HOME"
+timeout 360 sdkmanager 'emulator' 'system-images;android-36;google_apis;x86_64' | tee container-check/sdk.txt
 sudo chmod a+rw /dev/kvm
-printf 'no\n' | avdmanager create avd --force -n lcb-api36 -k 'system-images;android-36;google_apis;x86_64'
+printf 'no\n' | timeout 120 avdmanager create avd --force -n lcb-api36 -k 'system-images;android-36;google_apis;x86_64' -p "$ANDROID_AVD_HOME/lcb-api36.avd"
+test -f "$ANDROID_AVD_HOME/lcb-api36.ini"
 "$ANDROID_HOME/emulator/emulator" -avd lcb-api36 -no-window -no-audio -no-boot-anim \
     -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 -camera-back none -camera-front none \
     > container-check/emulator.txt 2>&1 &
 emulator_pid=$!
 cleanup() {
-    adb logcat -d -s LCBContainer:I AndroidRuntime:E > container-check/runtime.txt 2>&1 || true
-    adb emu kill >/dev/null 2>&1 || true
+    timeout 10 adb logcat -d -s LCBContainer:I AndroidRuntime:E > container-check/runtime.txt 2>&1 || true
+    timeout 5 adb emu kill >/dev/null 2>&1 || true
     kill "$emulator_pid" 2>/dev/null || true
 }
 trap cleanup EXIT
 ready=false
-for ((i=0; i<180; i++)); do
-    if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == '1' ]]; then
+boot_deadline=$((SECONDS + 360))
+while ((SECONDS < boot_deadline)); do
+    if [[ "$(timeout 5 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == '1' ]]; then
         ready=true
         break
     fi
