@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,7 +38,7 @@ private val Paper = Color(0xFFF4F1EA)
 private val White = Color(0xFFFFFEFA)
 private val Ink = Color(0xFF242724)
 private val Accent = Color(0xFFB7362C)
-private val Muted = Color(0xFF72756D)
+private val Muted = Color(0xFF656A61)
 private val Rule = Color(0xFFDFE0D7)
 private val Green = Color(0xFF37664C)
 
@@ -147,9 +148,12 @@ private fun Masthead(page: Page) {
 @Composable
 private fun Departure(state: LauncherState, onImport: () -> Unit, onLaunch: () -> Unit,
     onSelfTest: () -> Unit, onArchive: () -> Unit, onTools: () -> Unit, onRefresh: () -> Unit) {
+    val shortScreen = LocalConfiguration.current.screenHeightDp < 500
     BoxWithConstraints {
-        if (maxWidth >= 700.dp) Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-            Column(Modifier.weight(1.12f)) { BoardingPass(state, onImport, onLaunch) }
+        if (maxWidth >= 560.dp) Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+            Column(Modifier.weight(1.12f)) {
+                if (shortScreen) CompactBoardingPass(state, onImport, onLaunch) else BoardingPass(state, onImport, onLaunch)
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(22.dp)) {
                 Preparation(state, onRefresh)
                 Shortcuts(state, onSelfTest, onArchive, onTools)
@@ -166,23 +170,20 @@ private fun Departure(state: LauncherState, onImport: () -> Unit, onLaunch: () -
 private fun BoardingPass(state: LauncherState, onImport: () -> Unit, onLaunch: () -> Unit) {
     val imported = state.container != null
     Column {
-        Box(Modifier.fillMaxWidth().heightIn(min = 236.dp).background(Ink, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 218.dp).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).background(Ink)) {
             TransitDrawing(Modifier.matchParentSize())
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Label("LIMBUS COMPANY  /  ANDROID", Color(0xFFBFC2B5))
                 Text(if (imported) "下一站，\n容器之内。" else "准备好了，\n就启程。", color = White,
                     fontSize = 34.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Box(Modifier.size(6.dp).background(Color(0xFFD55F50), RoundedCornerShape(3.dp)))
-                    Text(if (imported) "游戏已导入 · 等待测试启动" else "自主容器 · 等待导入游戏", color = Color(0xFFDADCD4), fontSize = 12.sp)
-                }
+
             }
         }
         Column(Modifier.fillMaxWidth().background(White, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Label("DEPARTURE  /  启程凭证", Muted)
+                    Label(if (imported) "READY  /  游戏已导入" else "IMPORT  /  等待导入", Muted)
                     Text("Limbus Company", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(if (imported) "02" else "01", fontSize = 34.sp, fontWeight = FontWeight.Light, color = Rule, fontFamily = FontFamily.Monospace)
@@ -201,6 +202,20 @@ private fun BoardingPass(state: LauncherState, onImport: () -> Unit, onLaunch: (
                 Text("原版游戏与已有容器数据已保留。", color = Muted, fontSize = 11.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun CompactBoardingPass(state: LauncherState, onImport: () -> Unit, onLaunch: () -> Unit) {
+    val imported = state.container != null
+    Column(Modifier.fillMaxWidth().background(Ink, RoundedCornerShape(14.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Label(if (imported) "READY  /  游戏已导入" else "IMPORT  /  等待导入", Color(0xFFC4C7BC))
+        Text("Limbus Company", fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = White)
+        PrimaryAction(if (imported) "测试容器启动" else "导入原版游戏", !state.busy &&
+            (imported || state.snapshot?.game?.installed == true), if (imported) onLaunch else onImport)
+        Text("实验版 · 尚未提供游戏内汉化", fontSize = 11.sp, color = Color(0xFFD5D8CC))
+        if (imported) TextButton(onClick = onImport, enabled = !state.busy) { Text("重新导入原版", color = White) }
+        state.containerError?.let { Text(it, color = Color(0xFFF0AAA0), fontSize = 12.sp, lineHeight = 20.sp) }
     }
 }
 
