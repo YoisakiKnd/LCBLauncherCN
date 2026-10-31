@@ -14,6 +14,16 @@ timeout 360 sdkmanager 'emulator' 'system-images;android-36;google_apis;x86_64' 
 sudo chmod a+rw /dev/kvm
 printf 'no\n' | timeout 120 avdmanager create avd --force -n lcb-api36 -k 'system-images;android-36;google_apis;x86_64' -p "$ANDROID_AVD_HOME/lcb-api36.avd"
 test -f "$ANDROID_AVD_HOME/lcb-api36.ini"
+# The API 36 image now defaults to a 6 GiB userdata partition; the fixture needs very little data.
+# Keep the ephemeral emulator within the GitHub runner disk budget without removing SDK installations.
+python3 - <<'PYAVD'
+import os
+from pathlib import Path
+config = Path(os.environ['ANDROID_AVD_HOME']) / 'lcb-api36.avd/config.ini'
+lines = [line for line in config.read_text().splitlines() if not line.startswith('disk.dataPartition.size=')]
+config.write_text('\n'.join(lines + ['disk.dataPartition.size=2G']) + '\n')
+PYAVD
+df -h "$ANDROID_AVD_HOME"
 "$ANDROID_HOME/emulator/emulator" -avd lcb-api36 -no-window -no-audio -no-boot-anim \
     -no-snapshot -gpu swiftshader_indirect -memory 2048 -cores 2 -camera-back none -camera-front none \
     > container-check/emulator.txt 2>&1 &
