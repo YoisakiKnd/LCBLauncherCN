@@ -35,26 +35,26 @@ class ContainerExecutionTest {
         assertNotInstalled()
         // Capture the actual app for visual review; these images are not game compatibility evidence.
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 15_000))
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏").maxDepth(32)), 15_000))
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home.png")))
-        device.findObject(By.desc("导航：资源")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("资源档案")), 10_000))
+        device.findObject(By.desc("导航：资源").maxDepth(32)).click()
+        assertTrue(device.wait(Until.hasObject(By.text("资源档案").maxDepth(32)), 10_000))
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-archive.png")))
-        device.findObject(By.desc("导航：工具")).click()
-        assertTrue(device.wait(Until.hasObject(By.text("工具与诊断")), 10_000))
+        device.findObject(By.desc("导航：工具").maxDepth(32)).click()
+        assertTrue(device.wait(Until.hasObject(By.text("工具与诊断").maxDepth(32)), 10_000))
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-tools.png")))
-        device.findObject(By.desc("导航：启程")).click()
-        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 10_000))
+        device.findObject(By.desc("导航：启程").maxDepth(32)).click()
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏").maxDepth(32)), 10_000))
         device.waitForIdle()
         device.setOrientationLeft()
         device.waitForIdle()
         // Accessibility can report idle before the recreated window's first frame reaches SurfaceFlinger.
         SystemClock.sleep(1_000)
         assertTrue(device.displayWidth > device.displayHeight)
-        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏")), 10_000))
+        assertTrue(device.wait(Until.hasObject(By.textContains("导入原版游戏").maxDepth(32)), 10_000))
         assertTrue(device.takeScreenshot(File(context.cacheDir, "ui-home-landscape.png")))
         device.setOrientationNatural()
         device.unfreezeRotation()
@@ -67,8 +67,8 @@ class ContainerExecutionTest {
                 .putExtra(ContainerActivity.EXTRA_PACKAGE, ContainerStore.FIXTURE_PACKAGE)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             assertTrue("Guest UI absent; journal=${ContainerJournal(context).read()}",
-                device.wait(Until.hasObject(By.textContains("GUEST_COUNT=$count")), 20_000))
-            val text = device.findObject(By.textContains("GUEST_COUNT=$count")).text
+                device.wait(Until.hasObject(By.textContains("GUEST_COUNT=$count").maxDepth(32)), 20_000))
+            val text = device.findObject(By.textContains("GUEST_COUNT=$count").maxDepth(32)).text
             assertTrue(text.contains("GUEST_RESOURCE_OK"))
             assertTrue(text.contains("GUEST_ASSET_OK"))
             val session = requireNotNull(ContainerJournal(context).read())
@@ -80,7 +80,7 @@ class ContainerExecutionTest {
             assertEquals(Process.myUid(), session.getInt("uid"))
             previousPid = session.getInt("pid")
             device.pressBack()
-            assertTrue(device.wait(Until.gone(By.textContains("GUEST_COUNT=$count")), 10_000))
+            assertTrue(device.wait(Until.gone(By.textContains("GUEST_COUNT=$count").maxDepth(32)), 10_000))
             device.waitForIdle()
         }
         val guestFiles = File(context.filesDir, "container/${ContainerStore.FIXTURE_PACKAGE}/data/files").apply { mkdirs() }
@@ -110,7 +110,7 @@ class ContainerExecutionTest {
 
             throwMarker.writeText("test")
             launch()
-            assertTrue(device.wait(Until.hasObject(By.textContains("容器执行失败")), 15_000))
+            assertTrue(device.wait(Until.hasObject(By.textContains("容器执行失败").maxDepth(32)), 15_000))
             val failed = requireNotNull(ContainerJournal(context).read())
             assertEquals("failed_calling_application_on_create", failed.getString("stage"))
             assertEquals("java.lang.IllegalStateException", failed.getString("failureType"))
