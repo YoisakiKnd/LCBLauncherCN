@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.lcblauncher.container.ContainerInstall
 import io.github.lcblauncher.container.ContainerStore
 import io.github.lcblauncher.container.ContainerJournal
+import io.github.lcblauncher.container.ContainerProcessObservation
 import io.github.lcblauncher.core.ArchiveRejected
 import io.github.lcblauncher.core.TranslationArchive
 import io.github.lcblauncher.data.LocalArchiveStore
@@ -27,6 +28,7 @@ data class LauncherState(
     val snapshot: ProbeSnapshot? = null,
     val container: ContainerInstall? = null,
     val containerStage: String? = null,
+    val containerProcessState: String? = null,
     val containerError: String? = null,
     val archive: TranslationArchive? = null,
     val busy: Boolean = true,
@@ -56,6 +58,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 val snapshot = withContext(Dispatchers.IO) { probe.capture() }
                 val container = withContext(Dispatchers.IO) { ContainerStore(getApplication()).installed() }
                 val session = withContext(Dispatchers.IO) { ContainerJournal(getApplication()).read() }
+                val observation = withContext(Dispatchers.IO) { ContainerProcessObservation.capture(getApplication(), session) }
                 var cacheMessage: String? = null
                 val archive = if (initial) withContext(Dispatchers.IO) {
                     try { archives.load() } catch (_: Exception) {
@@ -64,7 +67,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     }
                 } else mutable.value.archive
                 mutable.value = mutable.value.copy(snapshot = snapshot, archive = archive, container = container,
-                    containerStage = session?.optString("stage"), busy = false,
+                    containerStage = session?.optString("stage"), containerProcessState = processStatus(observation), busy = false,
                     message = cacheMessage ?: if (initial || !announce) null else "检测信息已刷新")
             } catch (e: CancellationException) {
                 throw e
@@ -124,12 +127,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
+                    val session = ContainerJournal(getApplication()).read()
+                    val observation = ContainerProcessObservation.capture(getApplication(), session)
                     val report = org.json.JSONObject(ProbeReport.create(snapshot, captured.archive, captured.lastLaunchAt, captured.feedback)).apply {
+                        getJSONObject("runtime").put("launchMode", "system-original-or-experimental-container")
+                        put("exportedAt", Instant.now().toString())
                         put("container", org.json.JSONObject().apply {
                             put("engine", "independent-activity-alpha")
                             put("gameImported", captured.container != null)
                             put("gameVersion", captured.container?.version ?: org.json.JSONObject.NULL)
-                            put("lastSession", ContainerJournal(getApplication()).read() ?: org.json.JSONObject.NULL)
+                            put("lastSession", session ?: org.json.JSONObject.NULL)
+                            put("processObservation", observation)
                             put("nativeIoVirtualized", false)
                             put("googleLoginVerified", false)
                         })
@@ -157,6 +165,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (value !in setOf("not_tested", "original_opened", "original_failed")) return
         preferences.edit().putString("feedback", value).apply()
         mutable.value = mutable.value.copy(feedback = value, message = "测试结果已记录，导出诊断时会一并保存。")
+    }
+
+    private fun processStatus(observation: org.json.JSONObject): String = when (observation.optString("state")) {
+        "exited" -> if (observation.optBoolean("hostRequestedClose")) "容器宿主已执行关闭" else when (observation.optJSONObject("exit")?.optString("reason")) {
+            "native_crash" -> "系统记录：原生崩溃"
+            "java_crash" -> "系统记录：Java 异常退出"
+            "exit_self" -> "系统记录：进程自行退出"
+            "anr" -> "系统记录：进程无响应"
+            "low_memory" -> "系统记录：内存不足退出"
+            "signal" -> "系统记录：进程被信号终止"
+            else -> "系统已记录容器进程退出"
+        }
+        "pid_present" -> "仍可观察到容器进程；不代表游戏已就绪"
+        "not_observed" -> "暂无匹配的进程退出记录；不能判断崩溃原因"
+        "no_session" -> "尚未运行容器"
+        else -> "系统进程状态暂不可用"
     }
 
     fun showMessage(message: String) { mutable.value = mutable.value.copy(message = message) }

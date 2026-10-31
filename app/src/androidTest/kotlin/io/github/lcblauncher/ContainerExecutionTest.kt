@@ -12,6 +12,7 @@ import androidx.test.uiautomator.Until
 import io.github.lcblauncher.container.ContainerActivity
 import io.github.lcblauncher.container.ContainerJournal
 import io.github.lcblauncher.container.ContainerStore
+import io.github.lcblauncher.container.ContainerProcessObservation
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,6 +73,8 @@ class ContainerExecutionTest {
             assertTrue(text.contains("GUEST_ASSET_OK"))
             val session = requireNotNull(ContainerJournal(context).read())
             assertEquals("guest_resumed", session.getString("stage"))
+            assertEquals("${ContainerStore.FIXTURE_PACKAGE}.FixtureApplication", session.getString("applicationClass"))
+            assertTrue(session.getJSONArray("events").toString().contains("calling_application_on_create"))
             assertNotEquals(Process.myPid(), session.getInt("pid"))
             assertNotEquals(previousPid, session.getInt("pid"))
             assertEquals(Process.myUid(), session.getInt("uid"))
@@ -80,6 +83,42 @@ class ContainerExecutionTest {
             assertTrue(device.wait(Until.gone(By.textContains("GUEST_COUNT=$count")), 10_000))
             device.waitForIdle()
         }
+        val guestFiles = File(context.filesDir, "container/${ContainerStore.FIXTURE_PACKAGE}/data/files").apply { mkdirs() }
+        fun launch() = context.startActivity(Intent(context, ContainerActivity::class.java)
+            .putExtra(ContainerActivity.EXTRA_PACKAGE, ContainerStore.FIXTURE_PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val exitMarker = File(guestFiles, "exit-during-attach")
+        val throwMarker = File(guestFiles, "throw-during-create")
+        try {
+            exitMarker.writeText("test")
+            launch()
+            val deadline = SystemClock.uptimeMillis() + 15_000
+            var observed = org.json.JSONObject()
+            var session = org.json.JSONObject()
+            while (SystemClock.uptimeMillis() < deadline) {
+                session = ContainerJournal(context).read() ?: org.json.JSONObject()
+                observed = ContainerProcessObservation.capture(context, session)
+                if (session.optString("stage") == "constructing_attaching_application" && observed.optString("state") == "exited") break
+                SystemClock.sleep(100)
+            }
+            assertEquals("Exit record not matched: $observed / $session", "exited", observed.getString("state"))
+            assertEquals("constructing_attaching_application", session.getString("stage"))
+            assertEquals("exit_self", observed.getJSONObject("exit").getString("reason"))
+            assertEquals(23, observed.getJSONObject("exit").getInt("status"))
+            assertEquals("system_session_marker", observed.getJSONObject("exit").getString("matchedBy"))
+            assertFalse(observed.getBoolean("hostRequestedClose"))
+            assertTrue(session.isNull("failureType"))
+
+            throwMarker.writeText("test")
+            launch()
+            assertTrue(device.wait(Until.hasObject(By.textContains("容器执行失败")), 15_000))
+            val failed = requireNotNull(ContainerJournal(context).read())
+            assertEquals("failed_calling_application_on_create", failed.getString("stage"))
+            assertEquals("java.lang.IllegalStateException", failed.getString("failureType"))
+            assertFalse(failed.toString().contains("fixture-sensitive-message-must-not-be-exported"))
+            assertEquals("pid_present", ContainerProcessObservation.capture(context, failed).getString("state"))
+            device.pressBack()
+            device.waitForIdle()
+        } finally { exitMarker.delete(); throwMarker.delete() }
         assertNotInstalled()
     }
 }

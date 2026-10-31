@@ -32,7 +32,7 @@ class ContainerActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var journal: ContainerJournal
     private var guestPackage = ProbePolicy.GAME_PACKAGE
-    private var stage = "process_started"
+    @Volatile private var stage = "process_started"
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
@@ -42,6 +42,12 @@ class ContainerActivity : ComponentActivity() {
         guestPackage = intent.getStringExtra(EXTRA_PACKAGE) ?: ProbePolicy.GAME_PACKAGE
         require(guestPackage == ProbePolicy.GAME_PACKAGE || guestPackage == ContainerStore.FIXTURE_PACKAGE)
         journal = ContainerJournal(this)
+        val systemCrashHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching { journal.write(guestPackage, "failed_$stage", error) }
+            if (systemCrashHandler != null) systemCrashHandler.uncaughtException(thread, error)
+            else Process.killProcess(Process.myPid())
+        }
         val layout = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(0xff101113.toInt()) }
         status = TextView(this).apply {
             text = "独立容器 · 实验运行中（尚未接入汉化）"
@@ -71,13 +77,18 @@ class ContainerActivity : ComponentActivity() {
 
     private fun executeGuest(descriptor: GuestPackage) {
         guarded {
+            val applicationClass = descriptor.info.className ?: Application::class.java.name
+            val activityClassName = descriptor.activityInfo.targetActivity ?: descriptor.activityInfo.name
+            journal.identify(applicationClass, activityClassName)
             record("creating_classloader")
             val context = GuestContext(this, descriptor)
             Thread.currentThread().contextClassLoader = context.classLoader
-            record("creating_application")
-            val app = instrumentation.newApplication(context.classLoader,
-                descriptor.info.className ?: Application::class.java.name, context)
+            record("loading_application_class")
+            context.classLoader.loadClass(applicationClass).asSubclass(Application::class.java)
+            record("constructing_attaching_application")
+            val app = instrumentation.newApplication(context.classLoader, applicationClass, context)
             context.application = app
+            record("calling_application_on_create")
             instrumentation.callApplicationOnCreate(app)
             record("creating_activity")
             val className = descriptor.activityInfo.targetActivity ?: descriptor.activityInfo.name
@@ -126,6 +137,7 @@ class ContainerActivity : ComponentActivity() {
     override fun onDestroy() {
         guest?.let { activity -> guarded { instrumentation.callActivityOnDestroy(activity); record("guest_destroyed") } }
         guest = null
+        runCatching { journal.markHostRequestedClose() }
         super.onDestroy()
         // Unity and other native runtimes cannot reliably be unloaded. Every next launch uses a fresh process.
         Process.killProcess(Process.myPid())

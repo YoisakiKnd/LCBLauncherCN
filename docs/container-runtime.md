@@ -57,3 +57,15 @@ vivo Android 16 / ARM64 的容器自检和 Limbus 实验启动仍需真机测试
 vivo 真机反馈自检两次成功，第二次计数为 2；尚未导入游戏。旧版单原生库 128 MiB 限制导致导入报错（原错误也可能表示条目数量超限，未包含实际库名与大小）。新版将上限调整为单库 1 GiB、总量 2 GiB，在复制 APK 之前检查所需空间，并为超限报告具体库名、展开大小与上限。解压保持 64 KiB 缓冲，不将大库读入内存。新增 129 MiB 库的真实流式导入回归测试，以及总量、路径与同名冲突测试。
 
 界面改为米白 / 炭黑 / 朱红配色，首页聚焦导入与实验启动，资源与工具页分别呈现离线资源及诊断，设备详情折叠；导入错误在首页持续保留。云端模拟器会生成三页及横屏截图供视觉复核。
+
+## 0.2.2 初始化退出诊断
+
+真机反馈已确认游戏 1.118.0 导入成功，最后阶段为 `creating_application`。旧记录没有 Java 异常，不能据此宣称原生崩溃或保护组件退出。
+
+新增加载 Application 类、构造 / 绑定、调用 Application.onCreate 三个阶段，保留最多 24 条阶段时间戳及 Application / Activity 类名。进程设置随机、每次启动独立的系统状态标记，用于匹配 ApplicationExitInfo，排除 PID 复用或旧会话退出记录；旧系统 / 记录缺少标记时采用明确标示的 PID、UID、进程名与时间匹配。无匹配记录时保持未知，不推断为崩溃。
+
+报告只包含退出原因枚举、状态码、时间和匹配方式，不读取 traceInputStream 或 description，不包含异常正文、原生栈、游戏数据或凭据。宿主主动执行关闭会单独标记，避免将正常返回后的 SIGKILL 误判为异常崩溃。未捕获 Java 异常在记录类型和方法名后继续交给系统处理。
+
+测试客体增加真实自定义 Application。云端 Android 16 仪器测试额外覆盖绑定期间 System.exit(23) 与 Application.onCreate 抛出异常；这些是合成测试，不代表已复现真实游戏的退出原因。
+
+依据：[ActivityManager.getHistoricalProcessExitReasons](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,%20int,%20int))、[ApplicationExitInfo](https://developer.android.com/reference/android/app/ApplicationExitInfo)。

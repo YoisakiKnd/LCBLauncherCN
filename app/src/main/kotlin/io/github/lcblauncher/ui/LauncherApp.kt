@@ -303,6 +303,7 @@ private fun Workshop(state: LauncherState, onRefresh: () -> Unit, onExport: () -
         Label("RUN LOG  /  运行记录", Accent)
         Text(state.containerStage?.let(::stageLabel) ?: "还没有容器运行记录", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
         state.containerStage?.let { Text(it, fontFamily = FontFamily.Monospace, color = Muted, fontSize = 11.sp) }
+        state.containerProcessState?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 20.sp) }
         Text("导出设备、游戏版本和容器阶段。不含账号、存档、游戏 APK 或译文正文。", color = Muted, fontSize = 13.sp, lineHeight = 22.sp)
         PrimaryAction("导出诊断 JSON", !state.busy && state.snapshot != null, onExport)
     }
@@ -498,6 +499,10 @@ private fun TransitDrawing(modifier: Modifier) {
 
 private fun stageLabel(stage: String): String = when {
     stage.startsWith("failed_") -> "上次容器运行未完成"
+    stage == "loading_application_class" -> "正在加载游戏 Application 类"
+    stage == "constructing_attaching_application" -> "最后记录：创建并绑定游戏 Application"
+    stage == "calling_application_on_create" -> "最后记录：初始化游戏 Application"
+    stage == "creating_application" -> "最后记录：创建游戏 Application"
     stage == "guest_resumed" -> "客体界面已执行"
     stage == "guest_destroyed" -> "上次客体已正常关闭"
     stage == "guest_paused" || stage == "guest_stopped" -> "客体已退至后台"
